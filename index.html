@@ -958,12 +958,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
       wrapper.querySelector(".cargo-chargeable").textContent = `Chargeable Weight: ${chargeableKg.toFixed(2)} kg`;
     }
 
-  function recalcAllCargo() {
+ function recalcAllCargo() {
 
   let totalVolume = 0
   let totalVolumetric = 0
   let totalChargeable = 0
   let totalGrossKg = 0
+
+  const formatWeight = (kg, lb) => `${kg.toFixed(2)} kg | ${lb.toFixed(2)} lbs`
+  const formatVolume = (m3, ft3) => `${m3.toFixed(3)} m³ | ${ft3.toFixed(2)} ft³`
 
   cargoItemsEl.querySelectorAll("[data-index]").forEach(wrapper => {
 
@@ -975,6 +978,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
     let width = parseFloat(wrapper.querySelector(".cargo-width").value) || 0
     let height = parseFloat(wrapper.querySelector(".cargo-height").value) || 0
     const dimUnit = wrapper.querySelector(".cargo-dim-unit").value
+
+    // --- GUARD (no fake calculations) ---
+    if (!qty || !weight || !length || !width || !height) {
+      wrapper.querySelector(".cargo-gross").textContent = "Gross Weight: —"
+      wrapper.querySelector(".cargo-volume").textContent = "Volume: —"
+      wrapper.querySelector(".cargo-volumetric").textContent = "Volumetric Weight: —"
+      wrapper.querySelector(".cargo-chargeable").textContent = "Chargeable Weight: —"
+      return
+    }
 
     // --- NORMALIZE ---
     let actualWeightKg = weightUnit === "lbs" ? weight / 2.20462 : weight
@@ -999,58 +1011,51 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const totalActualWeightKg = actualWeightKg * qty
     const chargeableKg = Math.max(totalActualWeightKg, volumetricWeightKg)
 
-    // --- ACCUMULATE ---
+    // --- ACCUMULATE TOTALS ---
     totalVolume += totalCbm
     totalVolumetric += volumetricWeightKg
     totalChargeable += chargeableKg
     totalGrossKg += totalActualWeightKg
 
-    // --- DISPLAY UNITS ---
-    const displayWeightUnit = weightUnit
-    const grossDisplay = displayWeightUnit === "lbs"
-      ? (totalActualWeightKg * 2.20462).toFixed(2) + " lbs"
-      : totalActualWeightKg.toFixed(2) + " kg"
+    // --- CONVERSIONS ---
+    const grossLb = totalActualWeightKg * 2.20462
+    const volFt3 = totalCbm * 35.3147
+    const volWeightLb = volumetricWeightKg * 2.20462
+    const chargeLb = chargeableKg * 2.20462
 
-    const volDisplay = dimUnit === "inch"
-      ? (totalCbm * 35.3147).toFixed(2) + " ft³"
-      : totalCbm.toFixed(3) + " m³"
-
-    const volWeightDisplay = displayWeightUnit === "lbs"
-      ? (volumetricWeightKg * 2.20462).toFixed(2) + " lbs"
-      : volumetricWeightKg.toFixed(2) + " kg"
-
-    const chargeDisplay = displayWeightUnit === "lbs"
-      ? (chargeableKg * 2.20462).toFixed(2) + " lbs"
-      : chargeableKg.toFixed(2) + " kg"
-
-    // --- UPDATE UI ---
+    // --- UPDATE UI (DUAL UNITS) ---
     wrapper.querySelector(".cargo-gross").textContent =
-      `Gross Weight: ${grossDisplay}`
+      `Gross Weight: ${formatWeight(totalActualWeightKg, grossLb)}`
 
     wrapper.querySelector(".cargo-volume").textContent =
-      `Volume: ${volDisplay}`
+      `Volume: ${formatVolume(totalCbm, volFt3)}`
 
     wrapper.querySelector(".cargo-volumetric").textContent =
-      `Volumetric Weight: ${volWeightDisplay}`
+      `Volumetric Weight: ${formatWeight(volumetricWeightKg, volWeightLb)}`
 
     wrapper.querySelector(".cargo-chargeable").textContent =
-      `Chargeable Weight: ${chargeDisplay}`
+      `Chargeable Weight: ${formatWeight(chargeableKg, chargeLb)}`
 
   })
 
-  // --- TOTAL DISPLAY (KG BASE) ---
+  // --- TOTAL CONVERSIONS ---
+  const totalGrossLb = totalGrossKg * 2.20462
+  const totalVolumeFt3 = totalVolume * 35.3147
+  const totalVolumetricLb = totalVolumetric * 2.20462
+  const totalChargeableLb = totalChargeable * 2.20462
+
+  // --- UPDATE TOTAL UI ---
   document.getElementById("totalGrossWeight").textContent =
-    `Total Gross Weight: ${totalGrossKg.toFixed(2)} kg`
+    `Total Gross Weight: ${formatWeight(totalGrossKg, totalGrossLb)}`
 
   document.getElementById("totalVolume").textContent =
-    `Total Volume: ${totalVolume.toFixed(3)} CBM`
+    `Total Volume: ${formatVolume(totalVolume, totalVolumeFt3)}`
 
   document.getElementById("totalVolumetricWeight").textContent =
-    `Total Volumetric Weight: ${totalVolumetric.toFixed(2)} kg`
+    `Total Volumetric Weight: ${formatWeight(totalVolumetric, totalVolumetricLb)}`
 
   document.getElementById("totalChargeableWeight").textContent =
-    `Total Chargeable Weight: ${totalChargeable.toFixed(2)} kg`
-
+    `Total Chargeable Weight: ${formatWeight(totalChargeable, totalChargeableLb)}`
 }
     addCargoBtn.addEventListener("click", addCargoItem);
     addCargoItem();
