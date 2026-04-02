@@ -1088,6 +1088,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
         containerType: (state.transportMode === "ocean" && state.loadType === "fcl")
           ? document.getElementById("containerType").value
           : "",
+       
+        isBonded: document.getElementById("isBonded").checked,
+isFTZ: document.getElementById("isFTZ").checked,
+        
         cargo: getCargoPayload(),
 
         originCode: state.transportMode === "ground" ? "" : document.getElementById("originCode").value,
