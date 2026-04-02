@@ -847,8 +847,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
       weightUnitEl.dataset.prevUnit = weightUnitEl.value;
       dimUnitEl.dataset.prevUnit = dimUnitEl.value;
 
-      wrapper.addEventListener("input", () => {
-  recalcAllCargo();
+["input", "change"].forEach(evt => {
+  wrapper.addEventListener(evt, () => {
+    recalcAllCargo();
+  });
 });
 
       weightUnitEl.addEventListener("change", () => {
