@@ -399,10 +399,15 @@ console.error("Failed to load locations JSON", err)
           </div>
 
           <div id="cargoItems" class="space-y-4"></div>
+         
           <!-- Shipment Totals -->
 <div id="cargoTotals" class="bg-white border border-[#e2d4c8] rounded-xl p-4 text-sm mt-4">
   <div class="font-semibold text-[#0f6fa6] mb-2">Shipment Totals</div>
 
+  <div class="text-[#8a6247]" id="totalGrossWeight">
+  Total Gross Weight: —
+</div>
+  
   <div class="text-[#8a6247]" id="totalVolume">
     Total Volume: —
   </div>
@@ -828,9 +833,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
           </div>
         </div>
 
-        <div class="text-xs text-[#8a6247] cargo-volume">Volume: —</div>
-        <div class="text-xs text-[#8a6247] cargo-volumetric">Volumetric Weight: —</div>
-        <div class="text-xs text-[#8a6247] cargo-chargeable">Chargeable Weight: —</div>
+        <div class="text-xs text-[#8a6247] cargo-gross">Gross Weight: —</div>
+<div class="text-xs text-[#8a6247] cargo-volume">Volume: —</div>
+<div class="text-xs text-[#8a6247] cargo-volumetric">Volumetric Weight: —</div>
+<div class="text-xs text-[#8a6247] cargo-chargeable">Chargeable Weight: —</div>
 
         <button type="button" class="mt-3 text-sm text-red-600 font-medium remove-cargo">Remove</button>
       `;
@@ -952,11 +958,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
       wrapper.querySelector(".cargo-chargeable").textContent = `Chargeable Weight: ${chargeableKg.toFixed(2)} kg`;
     }
 
-    function recalcAllCargo() {
+  function recalcAllCargo() {
 
   let totalVolume = 0
   let totalVolumetric = 0
   let totalChargeable = 0
+  let totalGrossKg = 0
 
   cargoItemsEl.querySelectorAll("[data-index]").forEach(wrapper => {
 
@@ -969,6 +976,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     let height = parseFloat(wrapper.querySelector(".cargo-height").value) || 0
     const dimUnit = wrapper.querySelector(".cargo-dim-unit").value
 
+    // --- NORMALIZE ---
     let actualWeightKg = weightUnit === "lbs" ? weight / 2.20462 : weight
 
     let lCm = dimUnit === "inch" ? length * 2.54 : length
@@ -991,24 +999,49 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const totalActualWeightKg = actualWeightKg * qty
     const chargeableKg = Math.max(totalActualWeightKg, volumetricWeightKg)
 
-    // ACCUMULATE TOTALS
+    // --- ACCUMULATE ---
     totalVolume += totalCbm
     totalVolumetric += volumetricWeightKg
     totalChargeable += chargeableKg
+    totalGrossKg += totalActualWeightKg
 
-    // UPDATE EACH ITEM DISPLAY
+    // --- DISPLAY UNITS ---
+    const displayWeightUnit = weightUnit
+    const grossDisplay = displayWeightUnit === "lbs"
+      ? (totalActualWeightKg * 2.20462).toFixed(2) + " lbs"
+      : totalActualWeightKg.toFixed(2) + " kg"
+
+    const volDisplay = dimUnit === "inch"
+      ? (totalCbm * 35.3147).toFixed(2) + " ft³"
+      : totalCbm.toFixed(3) + " m³"
+
+    const volWeightDisplay = displayWeightUnit === "lbs"
+      ? (volumetricWeightKg * 2.20462).toFixed(2) + " lbs"
+      : volumetricWeightKg.toFixed(2) + " kg"
+
+    const chargeDisplay = displayWeightUnit === "lbs"
+      ? (chargeableKg * 2.20462).toFixed(2) + " lbs"
+      : chargeableKg.toFixed(2) + " kg"
+
+    // --- UPDATE UI ---
+    wrapper.querySelector(".cargo-gross").textContent =
+      `Gross Weight: ${grossDisplay}`
+
     wrapper.querySelector(".cargo-volume").textContent =
-      `Volume: ${totalCbm.toFixed(3)} CBM`
+      `Volume: ${volDisplay}`
 
     wrapper.querySelector(".cargo-volumetric").textContent =
-      `Volumetric Weight: ${volumetricWeightKg.toFixed(2)} kg`
+      `Volumetric Weight: ${volWeightDisplay}`
 
     wrapper.querySelector(".cargo-chargeable").textContent =
-      `Chargeable Weight: ${chargeableKg.toFixed(2)} kg`
+      `Chargeable Weight: ${chargeDisplay}`
 
   })
 
-  // UPDATE TOTALS UI
+  // --- TOTAL DISPLAY (KG BASE) ---
+  document.getElementById("totalGrossWeight").textContent =
+    `Total Gross Weight: ${totalGrossKg.toFixed(2)} kg`
+
   document.getElementById("totalVolume").textContent =
     `Total Volume: ${totalVolume.toFixed(3)} CBM`
 
