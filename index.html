@@ -1262,102 +1262,180 @@ isFTZ: document.getElementById("isFTZ").checked,
 
 // PARSER 
 
-document.getElementById("parseSmartPasteBtn").addEventListener("click", () => {
+document.addEventListener("DOMContentLoaded", () => {
+  const parseBtn = document.getElementById("parseSmartPasteBtn");
 
-  const text = document.getElementById("smartPaste").value.toLowerCase()
-  if (!text) return
-
-  // --- SPLIT INTO LINES (items) ---
-  const lines = text.split("\n").filter(l => l.trim() !== "")
-
-  // --- RESET EXISTING ITEMS ---
-  cargoItemsEl.innerHTML = ""
-  cargoIndex = 0
-
-  // --- DETECT GLOBAL FLAGS ---
-  const isFTZ = text.includes("ftz")
-  const isBonded = text.includes("bonded")
-
-  document.getElementById("isFTZ").checked = isFTZ
-  document.getElementById("isBonded").checked = isBonded
-
-  // --- TRANSPORT MODE ---
-  if (text.includes("air")) {
-    state.transportMode = "air"
-    setGroupActive("transportMode", "air")
-  } else if (text.includes("ocean") || text.includes("sea")) {
-    state.transportMode = "ocean"
-    setGroupActive("transportMode", "ocean")
+  if (!parseBtn) {
+    console.error("parseSmartPasteBtn not found");
+    return;
   }
 
-  // --- ROUTE (SMARTER) ---
-  const routeMatch = text.match(/from\s+(.+?)\s+to\s+(.+)/)
-  if (routeMatch) {
-    document.getElementById("originName").value = routeMatch[1].trim()
-    document.getElementById("destinationName").value = routeMatch[2].trim()
-  }
+  parseBtn.addEventListener("click", () => {
+    const textarea = document.getElementById("smartPaste");
+    if (!textarea) return;
 
-  // --- LOOP ITEMS ---
-  lines.forEach(line => {
+    const rawText = textarea.value.trim();
+    if (!rawText) return;
 
-    // only treat line as item if it has numbers
-    if (!/\d/.test(line)) return
+    const text = rawText.toLowerCase();
 
-    addCargoItem()
-    const wrapper = cargoItemsEl.lastElementChild
+    // ---------- GLOBAL FLAGS ----------
+    const ftzEl = document.getElementById("isFTZ");
+    const bondedEl = document.getElementById("isBonded");
 
-    // --- QTY ---
-    const qtyMatch = line.match(/(\d+)\s*(pallet|box|crate)/)
-    if (qtyMatch) {
-      wrapper.querySelector(".cargo-qty").value = qtyMatch[1]
+    if (ftzEl) ftzEl.checked = /\bftz\b/.test(text);
+    if (bondedEl) bondedEl.checked = /\bbonded\b/.test(text);
+
+    // ---------- TRANSPORT MODE ----------
+    if (/\bair\b/.test(text)) {
+      state.transportMode = "air";
+      setGroupActive("transportMode", "air");
+    } else if (/\b(ocean|sea)\b/.test(text)) {
+      state.transportMode = "ocean";
+      setGroupActive("transportMode", "ocean");
+    } else if (/\bground\b/.test(text)) {
+      state.transportMode = "ground";
+      setGroupActive("transportMode", "ground");
     }
 
-    // --- WEIGHT ---
-    const weightMatch = line.match(/(\d+(\.\d+)?)\s*(kg|lbs)/)
-    if (weightMatch) {
-      const value = weightMatch[1]
-      const unit = weightMatch[3]
+    syncConditionalSections();
 
-      wrapper.querySelector(".cargo-weight").value = value
-      wrapper.querySelector(".cargo-weight-unit").value = unit
+    // ---------- TRADE DIRECTION ----------
+    if (/\bimport\b/.test(text)) {
+      state.tradeDirection = "import";
+      setGroupActive("tradeDirection", "import");
+    } else if (/\bexport\b/.test(text)) {
+      state.tradeDirection = "export";
+      setGroupActive("tradeDirection", "export");
     }
 
-    // --- DIMENSIONS ---
-    const dimMatch = line.match(/(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+)/)
-    if (dimMatch) {
-      wrapper.querySelector(".cargo-length").value = dimMatch[1]
-      wrapper.querySelector(".cargo-width").value = dimMatch[2]
-      wrapper.querySelector(".cargo-height").value = dimMatch[3]
+    // ---------- ROUTE ----------
+    const routeMatch = rawText.match(/from\s+(.+?)\s+to\s+(.+)/i);
+    if (routeMatch && state.transportMode !== "ground") {
+      const origin = routeMatch[1].trim();
+      const destination = routeMatch[2].trim();
 
-      if (line.includes("cm")) {
-        wrapper.querySelector(".cargo-dim-unit").value = "cm"
-      } else {
-        wrapper.querySelector(".cargo-dim-unit").value = "inch"
+      const originNameEl = document.getElementById("originName");
+      const destinationNameEl = document.getElementById("destinationName");
+
+      if (originNameEl) originNameEl.value = origin;
+      if (destinationNameEl) destinationNameEl.value = destination;
+    }
+
+    // ---------- INLAND ----------
+    const inlandRequested =
+      /\bpickup\b/.test(text) ||
+      /\bdelivery\b/.test(text) ||
+      /\binland\b/.test(text);
+
+    const inlandCheckbox = document.getElementById("includeInlandFreight");
+    const inlandSection = document.getElementById("inlandSection");
+
+    if (inlandCheckbox && state.transportMode !== "ground") {
+      inlandCheckbox.checked = inlandRequested;
+      if (inlandSection) {
+        inlandSection.classList.toggle("hidden", !inlandRequested);
       }
     }
 
-    // --- COMMODITY (basic guess) ---
-    if (line.includes("electronics")) {
-      wrapper.querySelector(".cargo-commodity").value = "Electronics"
-    } else if (line.includes("clothing")) {
-      wrapper.querySelector(".cargo-commodity").value = "Clothing"
+    // ---------- SPLIT POSSIBLE ITEM LINES ----------
+    const lines = rawText
+      .split("\n")
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    // Keep only lines that look like cargo lines
+    const itemLines = lines.filter(line => {
+      return (
+        /\d/.test(line) &&
+        (
+          /\b(pallet|pallets|box|boxes|crate|crates|drum|drums|bag|bags)\b/i.test(line) ||
+          /\d+\s*[x×]\s*\d+\s*[x×]\s*\d+/i.test(line) ||
+          /\b(kg|kgs|kilograms|lb|lbs|pounds)\b/i.test(line)
+        )
+      );
+    });
+
+    // If nothing cargo-like found, do not wipe existing items
+    if (!itemLines.length) {
+      recalcAllCargo();
+      document.getElementById("smartPasteModal")?.classList.add("hidden");
+      return;
     }
 
-    // --- CARGO TYPE ---
-    if (line.includes("fragile")) {
-      wrapper.querySelector(".cargo-type").value = "Fragile"
-    } else if (line.includes("hazard")) {
-      wrapper.querySelector(".cargo-type").value = "Hazardous"
-    }
+    // ---------- RESET ITEMS SAFELY ----------
+    cargoItemsEl.innerHTML = "";
+    cargoIndex = 0;
 
-  })
+    itemLines.forEach((line) => {
+      addCargoItem();
+      const wrapper = cargoItemsEl.lastElementChild;
+      if (!wrapper) return;
 
-  recalcAllCargo()
+      // QTY + PACKAGING
+      const qtyPackMatch = line.match(/(\d+)\s*(pallet|pallets|box|boxes|crate|crates|drum|drums|bag|bags)/i);
+      if (qtyPackMatch) {
+        wrapper.querySelector(".cargo-qty").value = qtyPackMatch[1];
 
-  document.getElementById("smartPasteModal").classList.add("hidden")
+        const rawPack = qtyPackMatch[2].toLowerCase();
+        let normalizedPack = "Box";
+        if (rawPack.startsWith("pallet")) normalizedPack = "Pallet";
+        else if (rawPack.startsWith("box")) normalizedPack = "Box";
+        else if (rawPack.startsWith("crate")) normalizedPack = "Crate";
+        else if (rawPack.startsWith("drum")) normalizedPack = "Drum";
+        else if (rawPack.startsWith("bag")) normalizedPack = "Bag";
 
-})
+        wrapper.querySelector(".cargo-packaging").value = normalizedPack;
+      }
 
+      // WEIGHT
+      const weightMatch = line.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilograms|lb|lbs|pounds)/i);
+      if (weightMatch) {
+        wrapper.querySelector(".cargo-weight").value = weightMatch[1];
+
+        const unitRaw = weightMatch[2].toLowerCase();
+        wrapper.querySelector(".cargo-weight-unit").value =
+          unitRaw.includes("lb") ? "lbs" : "kg";
+      }
+
+      // DIMS
+      const dimMatch = line.match(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i);
+      if (dimMatch) {
+        wrapper.querySelector(".cargo-length").value = dimMatch[1];
+        wrapper.querySelector(".cargo-width").value = dimMatch[2];
+        wrapper.querySelector(".cargo-height").value = dimMatch[3];
+
+        wrapper.querySelector(".cargo-dim-unit").value =
+          /\bcm\b/i.test(line) ? "cm" : "inch";
+      }
+
+      // COMMODITY
+      let commodity = line
+        .replace(/^\s*\d+\s*(pallet|pallets|box|boxes|crate|crates|drum|drums|bag|bags)\b/i, "")
+        .replace(/\b\d+(?:\.\d+)?\s*(kg|kgs|kilograms|lb|lbs|pounds)\b/i, "")
+        .replace(/\b\d+(?:\.\d+)?\s*[x×]\s*\d+(?:\.\d+)?\s*[x×]\s*\d+(?:\.\d+)?\b/i, "")
+        .replace(/\b(cm|inch|inches)\b/gi, "")
+        .replace(/\b(ftz|bonded|air|ocean|sea|ground|import|export|fragile|hazardous|refrigerated|oversized|general)\b/gi, "")
+        .trim();
+
+      commodity = commodity.replace(/\s{2,}/g, " ");
+      if (commodity) {
+        wrapper.querySelector(".cargo-commodity").value = commodity;
+      }
+
+      // CARGO TYPE
+      const cargoTypeEl = wrapper.querySelector(".cargo-type");
+      if (/\bfragile\b/i.test(line)) cargoTypeEl.value = "Fragile";
+      else if (/\bhazard/i.test(line)) cargoTypeEl.value = "Hazardous";
+      else if (/\brefrigerated\b/i.test(line)) cargoTypeEl.value = "Refrigerated";
+      else if (/\boversized\b/i.test(line)) cargoTypeEl.value = "Oversized";
+      else cargoTypeEl.value = "General";
+    });
+
+    recalcAllCargo();
+    document.getElementById("smartPasteModal")?.classList.add("hidden");
+  });
+});
 
 
   </script>
