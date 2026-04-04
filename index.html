@@ -1262,70 +1262,80 @@ isFTZ: document.getElementById("isFTZ").checked,
 
 // PARSER 
 
-document.getElementById("parseSmartPasteBtn").addEventListener("click", () => {
+document.addEventListener("DOMContentLoaded", () => {
 
-  const text = document.getElementById("smartPaste").value.toLowerCase()
+  const parseBtn = document.getElementById("parseSmartPasteBtn")
 
-  if (!text) return
-
-  const wrapper = cargoItemsEl.querySelector("[data-index]")
-  if (!wrapper) return
-
-  // --- QTY ---
-  const qtyMatch = text.match(/(\d+)\s*(pallet|pallets|box|boxes|crate|crates)/)
-  if (qtyMatch) {
-    wrapper.querySelector(".cargo-qty").value = qtyMatch[1]
+  if (!parseBtn) {
+    console.error("parseSmartPasteBtn not found")
+    return
   }
 
-  // --- WEIGHT ---
-  const weightMatch = text.match(/(\d+(\.\d+)?)\s*(kg|kgs|kilograms|lbs|pounds)/)
-  if (weightMatch) {
-    const value = weightMatch[1]
-    const unitRaw = weightMatch[3]
+  parseBtn.addEventListener("click", () => {
 
-    const unit = unitRaw.includes("lb") ? "lbs" : "kg"
+    const textarea = document.getElementById("smartPaste")
+    if (!textarea) return
 
-    wrapper.querySelector(".cargo-weight").value = value
-    wrapper.querySelector(".cargo-weight-unit").value = unit
-  }
+    const text = textarea.value.toLowerCase()
+    if (!text) return
 
-  // --- DIMENSIONS ---
-  const dimMatch = text.match(/(\d+(\.\d+)?)\s*[x×]\s*(\d+(\.\d+)?)\s*[x×]\s*(\d+(\.\d+)?)/)
+    const wrapper = document.querySelector("[data-index]")
+    if (!wrapper) return
 
-  if (dimMatch) {
-    wrapper.querySelector(".cargo-length").value = dimMatch[1]
-    wrapper.querySelector(".cargo-width").value = dimMatch[3]
-    wrapper.querySelector(".cargo-height").value = dimMatch[5]
-
-    // Detect unit
-    if (text.includes("cm")) {
-      wrapper.querySelector(".cargo-dim-unit").value = "cm"
-    } else {
-      wrapper.querySelector(".cargo-dim-unit").value = "inch"
+    // --- QTY ---
+    const qtyMatch = text.match(/(\d+)\s*(pallet|pallets|box|boxes|crate|crates)/)
+    if (qtyMatch) {
+      wrapper.querySelector(".cargo-qty").value = qtyMatch[1]
     }
-  }
 
-  // --- ROUTE (VERY BASIC) ---
-  const routeMatch = text.match(/from\s+([a-z\s]+)\s+to\s+([a-z\s]+)/)
-  if (routeMatch) {
-    document.getElementById("originName").value = routeMatch[1].trim()
-    document.getElementById("destinationName").value = routeMatch[2].trim()
-  }
+    // --- WEIGHT ---
+    const weightMatch = text.match(/(\d+(\.\d+)?)\s*(kg|kgs|kilograms|lbs|pounds)/)
+    if (weightMatch) {
+      const value = weightMatch[1]
+      const unitRaw = weightMatch[3]
+      const unit = unitRaw.includes("lb") ? "lbs" : "kg"
 
-  // --- TRANSPORT MODE ---
-  if (text.includes("air")) {
-    state.transportMode = "air"
-    setGroupActive("transportMode", "air")
-  } else if (text.includes("ocean") || text.includes("sea")) {
-    state.transportMode = "ocean"
-    setGroupActive("transportMode", "ocean")
-  }
+      wrapper.querySelector(".cargo-weight").value = value
+      wrapper.querySelector(".cargo-weight-unit").value = unit
+    }
 
-  // --- TRIGGER FULL RECALC ---
-  recalcAllCargo()
+    // --- DIMENSIONS ---
+    const dimMatch = text.match(/(\d+(\.\d+)?)\s*[x×]\s*(\d+(\.\d+)?)\s*[x×]\s*(\d+(\.\d+)?)/)
+    if (dimMatch) {
+      wrapper.querySelector(".cargo-length").value = dimMatch[1]
+      wrapper.querySelector(".cargo-width").value = dimMatch[3]
+      wrapper.querySelector(".cargo-height").value = dimMatch[5]
 
-  // --- CLOSE MODAL (nice UX) ---
-  document.getElementById("smartPasteModal").classList.add("hidden")
+      if (text.includes("cm")) {
+        wrapper.querySelector(".cargo-dim-unit").value = "cm"
+      } else {
+        wrapper.querySelector(".cargo-dim-unit").value = "inch"
+      }
+    }
+
+    // --- ROUTE ---
+    const routeMatch = text.match(/from\s+([a-z\s]+)\s+to\s+([a-z\s]+)/)
+    if (routeMatch) {
+      document.getElementById("originName").value = routeMatch[1].trim()
+      document.getElementById("destinationName").value = routeMatch[2].trim()
+    }
+
+    // --- MODE ---
+    if (text.includes("air")) {
+      state.transportMode = "air"
+      setGroupActive("transportMode", "air")
+    } else if (text.includes("ocean") || text.includes("sea")) {
+      state.transportMode = "ocean"
+      setGroupActive("transportMode", "ocean")
+    }
+
+    // --- RECALC ---
+    recalcAllCargo()
+
+    // --- CLOSE MODAL ---
+    document.getElementById("smartPasteModal").classList.add("hidden")
+
+  })
 
 })
 
