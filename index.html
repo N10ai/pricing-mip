@@ -1258,6 +1258,80 @@ isFTZ: document.getElementById("isFTZ").checked,
   })
 
 })
+
+
+// PARSER 
+
+document.getElementById("parseSmartPasteBtn").addEventListener("click", () => {
+
+  const text = document.getElementById("smartPaste").value.toLowerCase()
+
+  if (!text) return
+
+  const wrapper = cargoItemsEl.querySelector("[data-index]")
+  if (!wrapper) return
+
+  // --- QTY ---
+  const qtyMatch = text.match(/(\d+)\s*(pallet|pallets|box|boxes|crate|crates)/)
+  if (qtyMatch) {
+    wrapper.querySelector(".cargo-qty").value = qtyMatch[1]
+  }
+
+  // --- WEIGHT ---
+  const weightMatch = text.match(/(\d+(\.\d+)?)\s*(kg|kgs|kilograms|lbs|pounds)/)
+  if (weightMatch) {
+    const value = weightMatch[1]
+    const unitRaw = weightMatch[3]
+
+    const unit = unitRaw.includes("lb") ? "lbs" : "kg"
+
+    wrapper.querySelector(".cargo-weight").value = value
+    wrapper.querySelector(".cargo-weight-unit").value = unit
+  }
+
+  // --- DIMENSIONS ---
+  const dimMatch = text.match(/(\d+(\.\d+)?)\s*[x×]\s*(\d+(\.\d+)?)\s*[x×]\s*(\d+(\.\d+)?)/)
+
+  if (dimMatch) {
+    wrapper.querySelector(".cargo-length").value = dimMatch[1]
+    wrapper.querySelector(".cargo-width").value = dimMatch[3]
+    wrapper.querySelector(".cargo-height").value = dimMatch[5]
+
+    // Detect unit
+    if (text.includes("cm")) {
+      wrapper.querySelector(".cargo-dim-unit").value = "cm"
+    } else {
+      wrapper.querySelector(".cargo-dim-unit").value = "inch"
+    }
+  }
+
+  // --- ROUTE (VERY BASIC) ---
+  const routeMatch = text.match(/from\s+([a-z\s]+)\s+to\s+([a-z\s]+)/)
+  if (routeMatch) {
+    document.getElementById("originName").value = routeMatch[1].trim()
+    document.getElementById("destinationName").value = routeMatch[2].trim()
+  }
+
+  // --- TRANSPORT MODE ---
+  if (text.includes("air")) {
+    state.transportMode = "air"
+    setGroupActive("transportMode", "air")
+  } else if (text.includes("ocean") || text.includes("sea")) {
+    state.transportMode = "ocean"
+    setGroupActive("transportMode", "ocean")
+  }
+
+  // --- TRIGGER FULL RECALC ---
+  recalcAllCargo()
+
+  // --- CLOSE MODAL (nice UX) ---
+  document.getElementById("smartPasteModal").classList.add("hidden")
+
+})
+
+
+
+
   </script>
 
 
