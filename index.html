@@ -127,6 +127,18 @@ console.error("Failed to load locations JSON", err)
 
 })
 
+  document.getElementById("openSmartPaste").addEventListener("click", () => {
+  document.getElementById("smartPasteModal").classList.remove("hidden")
+})
+
+document.getElementById("closeSmartPaste").addEventListener("click", () => {
+  document.getElementById("smartPasteModal").classList.add("hidden")
+})
+
+document.getElementById("clearSmartPasteBtn").addEventListener("click", () => {
+  document.getElementById("smartPaste").value = ""
+})
+
 </script>
 <body>
   <!-- Header -->
@@ -188,8 +200,23 @@ console.error("Failed to load locations JSON", err)
       <p class="text-[#8a6247] mt-2 text-base leading-relaxed">
         Fill in your shipment details below.<br>
         (After you submit your request, you will receive a confirmation email with your reference Number)
-      </p>
+      </p> 
 
+      
+<div class="mt-6 text-center">
+  <button
+    type="button"
+    id="openSmartPaste"
+    class="bg-[#0f6fa6] hover:bg-[#0c5e8d] text-white px-5 py-2.5 rounded-lg font-semibold text-sm"
+  >
+    ⚡ Quick Fill from Shipment Details
+  </button>
+
+  <div class="text-xs text-[#8a6247] mt-2">
+    Paste shipment details and auto-fill the form instantly
+  </div>
+</div>
+      
       <form id="quoteForm" class="space-y-6 mt-8">
         <!-- Quote Details -->
         <section class="soft-card p-5 card-shadow">
@@ -1215,6 +1242,35 @@ isFTZ: document.getElementById("isFTZ").checked,
   </script>
 
 
+
+  <!-- Smart Paste Modal -->
+<div id="smartPasteModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-xl w-full max-w-xl p-6">
+
+    <div class="flex justify-between items-center mb-4">
+      <div class="font-bold text-lg">⚡ Quick Fill</div>
+      <button id="closeSmartPaste" class="text-gray-500">✕</button>
+    </div>
+
+    <textarea
+      id="smartPaste"
+      class="field w-full min-h-[140px]"
+      placeholder="Example:
+3 pallets
+850 kg
+120 x 100 x 150 cm
+Miami to Quito"
+    ></textarea>
+
+    <div class="flex justify-end gap-2 mt-4">
+      <button id="clearSmartPasteBtn" class="toggle-btn">Clear</button>
+      <button id="parseSmartPasteBtn" class="bg-[#0f6fa6] text-white px-4 py-2 rounded-lg text-sm font-semibold">
+        Autofill
+      </button>
+    </div>
+
+  </div>
+</div>
 
 </body>
 </html>
