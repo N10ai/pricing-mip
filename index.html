@@ -127,17 +127,7 @@ console.error("Failed to load locations JSON", err)
 
 })
 
-  document.getElementById("openSmartPaste").addEventListener("click", () => {
-  document.getElementById("smartPasteModal").classList.remove("hidden")
-})
 
-document.getElementById("closeSmartPaste").addEventListener("click", () => {
-  document.getElementById("smartPasteModal").classList.add("hidden")
-})
-
-document.getElementById("clearSmartPasteBtn").addEventListener("click", () => {
-  document.getElementById("smartPaste").value = ""
-})
 
 </script>
 <body>
@@ -1239,6 +1229,19 @@ isFTZ: document.getElementById("isFTZ").checked,
         `;
       }
     });
+    
+      document.getElementById("openSmartPaste").addEventListener("click", () => {
+  document.getElementById("smartPasteModal").classList.remove("hidden")
+})
+
+document.getElementById("closeSmartPaste").addEventListener("click", () => {
+  document.getElementById("smartPasteModal").classList.add("hidden")
+})
+
+document.getElementById("clearSmartPasteBtn").addEventListener("click", () => {
+  document.getElementById("smartPaste").value = ""
+})
+    
   </script>
 
 
