@@ -1230,251 +1230,177 @@ isFTZ: document.getElementById("isFTZ").checked,
       }
     });
     
-      document.addEventListener("DOMContentLoaded", () => {
+    
+    //parser button
+    
+    document.addEventListener("DOMContentLoaded", () => {
 
-  const modal = document.getElementById("smartPasteModal")
+  const modal = document.getElementById("smartPasteModal");
 
   // OPEN
   document.getElementById("openSmartPaste")?.addEventListener("click", () => {
-    modal.classList.remove("hidden")
-  })
+    modal.classList.remove("hidden");
+  });
 
-  // CLOSE (X button)
+  // CLOSE
   document.getElementById("closeSmartPaste")?.addEventListener("click", () => {
-    modal.classList.add("hidden")
-  })
+    modal.classList.add("hidden");
+  });
 
   // CLEAR
   document.getElementById("clearSmartPasteBtn")?.addEventListener("click", () => {
-    const textarea = document.getElementById("smartPaste")
-    if (textarea) textarea.value = ""
-  })
+    document.getElementById("smartPaste").value = "";
+  });
 
-  // OPTIONAL: CLICK OUTSIDE TO CLOSE (very nice UX)
+  // CLICK OUTSIDE
   modal?.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      modal.classList.add("hidden")
-    }
-  })
+    if (e.target === modal) modal.classList.add("hidden");
+  });
 
-})
-
-
-// PARSER 
-document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // AI PARSER
+  // =========================
 
   const parseBtn = document.getElementById("parseSmartPasteBtn");
 
-  if (!parseBtn) {
-    console.error("parseSmartPasteBtn not found");
-    return;
-  }
-
-  parseBtn.addEventListener("click", () => {
+  parseBtn?.addEventListener("click", async () => {
 
     const textarea = document.getElementById("smartPaste");
+    const loading = document.getElementById("aiLoading");
+
     if (!textarea) return;
 
     const rawText = textarea.value.trim();
     if (!rawText) return;
 
-    const text = rawText.toLowerCase();
+    try {
 
-    // =========================
-    // GLOBAL FLAGS
-    // =========================
-    document.getElementById("isFTZ").checked = /\bftz\b/.test(text);
-    document.getElementById("isBonded").checked = /\bbonded\b/.test(text);
+      // UI loading
+      loading.classList.remove("hidden");
+      parseBtn.disabled = true;
+      parseBtn.classList.add("opacity-60", "cursor-not-allowed");
 
-    // =========================
-    // TRANSPORT MODE
-    // =========================
-    if (/\bair\b/.test(text)) {
-      state.transportMode = "air";
-      setGroupActive("transportMode", "air");
-    } else if (/\b(ocean|sea)\b/.test(text)) {
-      state.transportMode = "ocean";
-      setGroupActive("transportMode", "ocean");
-    } else if (/\bground\b/.test(text)) {
-      state.transportMode = "ground";
-      setGroupActive("transportMode", "ground");
-    }
+      // =========================
+      // AI REQUEST
+      // =========================
+      const response = await fetch("https://YOUR-N8N-URL/webhook/parse-shipment-ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ text: rawText })
+      });
 
-    syncConditionalSections();
+      let data = await response.json();
 
-    // =========================
-    // TRADE DIRECTION
-    // =========================
-    if (/\bimport\b/.test(text)) {
-      state.tradeDirection = "import";
-      setGroupActive("tradeDirection", "import");
-    } else if (/\bexport\b/.test(text)) {
-      state.tradeDirection = "export";
-      setGroupActive("tradeDirection", "export");
-    }
+      const text = rawText.toLowerCase();
 
-    // =========================
-    // ROUTE (FROM → TO)
-    // =========================
-    const routeMatch = rawText.match(/from\s+(.+?)\s+to\s+(.+)/i);
+      // =========================
+      // FALLBACKS
+      // =========================
 
-    if (routeMatch && state.transportMode !== "ground") {
-      document.getElementById("originName").value = routeMatch[1].trim();
-      document.getElementById("destinationName").value = routeMatch[2].trim();
-    }
-
-    // =========================
-    // AIRPORT / PORT CODES
-    // =========================
-    const codeMatches = rawText.match(/\b[A-Z]{3,5}\b/g);
-
-    if (codeMatches && codeMatches.length >= 2) {
-      document.getElementById("originCode").value = codeMatches[0];
-      document.getElementById("destinationCode").value = codeMatches[1];
-    }
-
-    // =========================
-    // COUNTRY DETECTION (basic)
-    // =========================
-    const countries = ["usa", "united states", "ecuador", "china", "colombia"];
-
-    let countryFound = 0;
-
-    countries.forEach(c => {
-      if (text.includes(c)) {
-        if (countryFound === 0) {
-          document.getElementById("originCountryManual").value = c;
-        } else {
-          document.getElementById("destinationCountryManual").value = c;
-        }
-        countryFound++;
+      const codes = rawText.match(/\b[A-Z]{3,5}\b/g);
+      if ((!data.originCode || !data.destinationCode) && codes?.length >= 2) {
+        data.originCode = data.originCode || codes[0];
+        data.destinationCode = data.destinationCode || codes[1];
       }
-    });
 
-    // =========================
-    // PICKUP / DELIVERY
-    // =========================
-    const pickupMatch = rawText.match(/pickup[:\-]?\s*(.+)/i);
-    if (pickupMatch) {
-      document.getElementById("includeInlandFreight").checked = true;
-      document.getElementById("inlandSection").classList.remove("hidden");
+      const routeMatch = rawText.match(/from\s+(.+?)\s+to\s+(.+)/i);
+      if (routeMatch) {
+        data.originName = data.originName || routeMatch[1];
+        data.destinationName = data.destinationName || routeMatch[2];
+      }
 
-      const parts = pickupMatch[1].split(",");
+      if (!data.transportMode) {
+        if (text.includes("air")) data.transportMode = "air";
+        if (text.includes("ocean")) data.transportMode = "ocean";
+      }
 
-      document.getElementById("pickupCompany").value = parts[0]?.trim() || "";
-      document.getElementById("pickupAddress").value = parts.slice(1).join(",").trim() || "";
-    }
+      if (!data.isFTZ) data.isFTZ = text.includes("ftz");
+      if (!data.isBonded) data.isBonded = text.includes("bonded");
 
-    const deliveryMatch = rawText.match(/delivery[:\-]?\s*(.+)/i);
-    if (deliveryMatch) {
-      document.getElementById("includeInlandFreight").checked = true;
-      document.getElementById("inlandSection").classList.remove("hidden");
+      // =========================
+      // APPLY DATA
+      // =========================
 
-      const parts = deliveryMatch[1].split(",");
+      if (data.transportMode) {
+        state.transportMode = data.transportMode;
+        setGroupActive("transportMode", data.transportMode);
+      }
 
-      document.getElementById("deliveryCompany").value = parts[0]?.trim() || "";
-      document.getElementById("deliveryAddress").value = parts.slice(1).join(",").trim() || "";
-    }
+      if (data.tradeDirection) {
+        state.tradeDirection = data.tradeDirection;
+        setGroupActive("tradeDirection", data.tradeDirection);
+      }
 
-    // =========================
-    // SPLIT ITEMS
-    // =========================
-    const lines = rawText
-      .split("\n")
-      .map(l => l.trim())
-      .filter(Boolean);
+      syncConditionalSections();
 
-    const itemLines = lines.filter(line => {
-      return (
-        /\d/.test(line) &&
-        (
-          /\b(pallet|box|crate|drum|bag)s?\b/i.test(line) ||
-          /\d+\s*[x×]\s*\d+\s*[x×]\s*\d+/i.test(line) ||
-          /\b(kg|lb|lbs)\b/i.test(line)
-        )
-      );
-    });
+      document.getElementById("isFTZ").checked = data.isFTZ || false;
+      document.getElementById("isBonded").checked = data.isBonded || false;
 
-    if (!itemLines.length) {
+      document.getElementById("originCode").value = data.originCode || "";
+      document.getElementById("originName").value = data.originName || "";
+      document.getElementById("destinationCode").value = data.destinationCode || "";
+      document.getElementById("destinationName").value = data.destinationName || "";
+
+      // Inland
+      const hasInland = data.pickupCompany || data.deliveryCompany;
+
+      document.getElementById("includeInlandFreight").checked = !!hasInland;
+
+      if (hasInland) {
+        document.getElementById("inlandSection").classList.remove("hidden");
+
+        document.getElementById("pickupCompany").value = data.pickupCompany || "";
+        document.getElementById("pickupAddress").value = data.pickupAddress || "";
+
+        document.getElementById("deliveryCompany").value = data.deliveryCompany || "";
+        document.getElementById("deliveryAddress").value = data.deliveryAddress || "";
+      }
+
+      // Cargo
+      if (data.cargo?.length) {
+
+        cargoItemsEl.innerHTML = "";
+        cargoIndex = 0;
+
+        data.cargo.forEach(item => {
+
+          addCargoItem();
+          const w = cargoItemsEl.lastElementChild;
+
+          w.querySelector(".cargo-commodity").value = item.commodity || "";
+          w.querySelector(".cargo-packaging").value = item.packagingType || "Box";
+          w.querySelector(".cargo-type").value = item.cargoType || "General";
+          w.querySelector(".cargo-qty").value = item.qty || 1;
+
+          w.querySelector(".cargo-weight").value = item.weight || "";
+          w.querySelector(".cargo-weight-unit").value = item.weightUnit || "kg";
+
+          w.querySelector(".cargo-length").value = item.length || "";
+          w.querySelector(".cargo-width").value = item.width || "";
+          w.querySelector(".cargo-height").value = item.height || "";
+          w.querySelector(".cargo-dim-unit").value = item.dimUnit || "cm";
+
+        });
+      }
+
       recalcAllCargo();
-      document.getElementById("smartPasteModal").classList.add("hidden");
-      return;
+
+      modal.classList.add("hidden");
+
+    } catch (err) {
+      console.error(err);
+      alert("AI parsing failed");
+    } finally {
+      loading.classList.add("hidden");
+      parseBtn.disabled = false;
+      parseBtn.classList.remove("opacity-60", "cursor-not-allowed");
     }
-
-    // RESET ITEMS
-    cargoItemsEl.innerHTML = "";
-    cargoIndex = 0;
-
-    itemLines.forEach(line => {
-
-      addCargoItem();
-      const wrapper = cargoItemsEl.lastElementChild;
-
-      // QTY + PACKAGING
-      const qtyPackMatch = line.match(/(\d+)\s*(pallet|box|crate|drum|bag)s?/i);
-      if (qtyPackMatch) {
-        wrapper.querySelector(".cargo-qty").value = qtyPackMatch[1];
-
-        const pack = qtyPackMatch[2].toLowerCase();
-        const map = {
-          pallet: "Pallet",
-          box: "Box",
-          crate: "Crate",
-          drum: "Drum",
-          bag: "Bag"
-        };
-
-        wrapper.querySelector(".cargo-packaging").value = map[pack] || "Box";
-      }
-
-      // WEIGHT
-      const weightMatch = line.match(/(\d+(\.\d+)?)\s*(kg|lbs)/i);
-      if (weightMatch) {
-        wrapper.querySelector(".cargo-weight").value = weightMatch[1];
-        wrapper.querySelector(".cargo-weight-unit").value = weightMatch[3].toLowerCase();
-      }
-
-      // DIMENSIONS
-      const dimMatch = line.match(/(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+)/);
-      if (dimMatch) {
-        wrapper.querySelector(".cargo-length").value = dimMatch[1];
-        wrapper.querySelector(".cargo-width").value = dimMatch[2];
-        wrapper.querySelector(".cargo-height").value = dimMatch[3];
-
-        wrapper.querySelector(".cargo-dim-unit").value =
-          /\bcm\b/i.test(line) ? "cm" : "inch";
-      }
-
-      // COMMODITY CLEANUP
-      let commodity = line
-        .replace(/^\d+\s*(pallet|box|crate|drum|bag)s?/i, "")
-        .replace(/\d+(\.\d+)?\s*(kg|lbs)/i, "")
-        .replace(/\d+\s*[x×]\s*\d+\s*[x×]\s*\d+/i, "")
-        .replace(/\b(cm|inch)\b/i, "")
-        .replace(/\b(ftz|bonded|air|ocean|import|export)\b/i, "")
-        .trim();
-
-      wrapper.querySelector(".cargo-commodity").value = commodity;
-
-      // CARGO TYPE
-      if (line.includes("fragile")) {
-        wrapper.querySelector(".cargo-type").value = "Fragile";
-      } else if (line.includes("hazard")) {
-        wrapper.querySelector(".cargo-type").value = "Hazardous";
-      } else {
-        wrapper.querySelector(".cargo-type").value = "General";
-      }
-
-    });
-
-    recalcAllCargo();
-
-    document.getElementById("smartPasteModal").classList.add("hidden");
 
   });
 
 });
-
 
 
   </script>
@@ -1483,31 +1409,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
   <!-- Smart Paste Modal -->
 <div id="smartPasteModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
-  <div class="bg-white rounded-xl w-full max-w-xl p-6">
 
+  <div class="bg-white rounded-2xl w-full max-w-xl p-6 shadow-xl">
+
+    <!-- HEADER -->
     <div class="flex justify-between items-center mb-4">
-      <div class="font-bold text-lg">⚡ Quick Fill</div>
-      <button id="closeSmartPaste" class="text-gray-500">✕</button>
+      <div>
+        <div class="font-bold text-lg text-slate-900">
+          ⚡ Quick Fill from Shipment Details
+        </div>
+        <div class="text-xs text-[#8a6247]">
+          Paste shipment info and let AI fill the form for you
+        </div>
+      </div>
+
+      <button id="closeSmartPaste" class="text-gray-400 hover:text-gray-700 text-lg">
+        ✕
+      </button>
     </div>
 
+    <!-- TEXTAREA -->
     <textarea
       id="smartPaste"
       class="field w-full min-h-[140px]"
       placeholder="Example:
-3 pallets
-850 kg
-120 x 100 x 150 cm
-Miami to Quito"
+2 pallets electronics 500 kg 120x100x150 cm
+from MIA to UIO
+air shipment
+pickup: ABC Logistics, Miami FL
+delivery: Quito Imports, Ecuador"
     ></textarea>
 
-    <div class="flex justify-end gap-2 mt-4">
-      <button id="clearSmartPasteBtn" class="toggle-btn">Clear</button>
-      <button id="parseSmartPasteBtn" class="bg-[#0f6fa6] text-white px-4 py-2 rounded-lg text-sm font-semibold">
-        Autofill
+    <!-- LOADING -->
+    <div id="aiLoading" class="hidden flex items-center gap-2 text-sm text-[#0f6fa6] mt-3">
+      <div class="animate-spin rounded-full h-4 w-4 border-2 border-[#0f6fa6] border-t-transparent"></div>
+      <span>Analyzing shipment and filling details...</span>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="flex justify-between items-center mt-5">
+
+      <button
+        type="button"
+        id="clearSmartPasteBtn"
+        class="text-sm text-[#8a6247] hover:text-black"
+      >
+        Clear
       </button>
+
+      <button
+        type="button"
+        id="parseSmartPasteBtn"
+        class="bg-[#0f6fa6] hover:bg-[#0c5e8d] text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2"
+      >
+        ⚡ Autofill with AI
+      </button>
+
     </div>
 
   </div>
+
 </div>
 
 </body>
